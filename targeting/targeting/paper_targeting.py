@@ -20,7 +20,7 @@ class PaperTargetingNode(Node):
 
     def listener_callback(self, msg):
         obj_width_px = max(msg.size_x, msg.size_y)
-        obj_centroid_px = np.array([msg.center.x, msg.center.y])
+        obj_centroid_px = np.array([msg.center.position.x, msg.center.position.y])
 
         FOV_px = np.array([1920, 1080])
         FOV_angle = 69
