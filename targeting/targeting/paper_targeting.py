@@ -33,7 +33,7 @@ class PaperTargetingNode(Node):
         # Distance of paper from FOV center in m
         x = (obj_centroid_px[0] - FOV_px[0]/2) * m_from_px
         # Paper angle from camera
-        theta = np.atan2(x,r)
+        theta = np.arctan2(x,r)
         # Paper distance d from camera
         d = np.sqrt(x**2 + r**2)
 
