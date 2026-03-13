@@ -23,13 +23,13 @@ class PaperTargetingNode(Node):
         obj_centroid_px = np.array([msg.center.position.x, msg.center.position.y])
 
         FOV_px = np.array([1920, 1080])
-        FOV_angle = 69
+        FOV_angle = np.deg2rad(69)
 
         # Assuming standard sized printer paper, unit m
         m_from_px = 0.279 / obj_width_px
         FOV_x_cm = FOV_px[0] * m_from_px
         # Dist from camera to FOV plane in m
-        r = (FOV_x_cm / 2) * np.tan((180-FOV_angle)/2)
+        r = (FOV_x_cm / 2) * np.tan((np.pi-FOV_angle)/2)
         # Distance of paper from FOV center in m
         x = (obj_centroid_px[0] - FOV_px[0]/2) * m_from_px
         # Paper angle from camera
