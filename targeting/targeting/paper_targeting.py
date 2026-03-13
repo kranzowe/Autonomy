@@ -35,7 +35,7 @@ class PaperTargetingNode(Node):
         # Paper angle from camera
         theta = np.atan2(x,r)
         # Paper distance d from camera
-        d = np.sqrt(x^2 + r^2)
+        d = np.sqrt(x**2 + r**2)
 
         target = Twist()
         target.linear.x = d
