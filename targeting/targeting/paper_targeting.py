@@ -22,7 +22,7 @@ class PaperTargetingNode(Node):
         obj_width_px = max(msg.size_x, msg.size_y)
         obj_centroid_px = np.array([msg.center.position.x, msg.center.position.y])
 
-        FOV_px = np.array([1920, 1080])
+        FOV_px = np.array([640, 480])
         FOV_angle = np.deg2rad(69)
 
         # Assuming standard sized printer paper, unit m
