@@ -144,7 +144,7 @@ class RRT:
         max_iter: int = 500,
         play_area: Optional[List[float]] = None,
         robot_radius: float = 0.0,
-        max_steer: float = 5.0
+        max_steer: float = 15.0
     ):
         """
         Initialize the RRT planner.
@@ -197,7 +197,7 @@ class RRT:
         self.occupancy_grid = occupancy_grid
         self.node_list = []
         self.robot_radius = robot_radius
-
+        self.theta_weight = 0.001
         self.max_steer = max_steer
 
     # ADDED CODE! A lovely part property for the final path
@@ -231,11 +231,12 @@ class RRT:
             Node: Randomly sampled node
         """
 
-
+        is_goal = False
         random_num = random.random()
         if random_num < self.goal_sample_rate/100: # gotta divide by 100 to make range 0 to 1
             random_node = deepcopy(self.end) # imma deepcopy to be safe
-        
+            random_node.psi = random.uniform(self.min_rand[2], self.max_rand[2])
+            is_goal = True
         else:
             # need a rando sample
             rand_x = random.uniform(self.min_rand[0], self.max_rand[0])
@@ -244,7 +245,7 @@ class RRT:
 
             random_node = self.Node(rand_x, rand_y, rand_psi)
 
-        return random_node
+        return random_node, is_goal
     
     def calc_dist_to_goal(self, x, y):
         """Calculate distance from current position to the goal."""
@@ -305,7 +306,7 @@ class RRT:
         for i in range(self.max_iter):
             # YOUR CODE GOES HERE
             # Use get_random_node() to sample a random configuration
-            rnd_node = self.get_random_node()
+            rnd_node, is_goal = self.get_random_node()
 
             # Find nearest node in the tree
             nearest_node = self.find_nearest_node(rnd_node)
@@ -319,7 +320,7 @@ class RRT:
                 self.node_list.append(proposed_node)
 
             # DO NOT ALTER THE NEXT 2 LINES
-            if animation and i % 5 == 0:
+            if animation and i % 50 == 0:
                 self.draw_graph(rnd_node)
             # YOUR CODE GOES HERE
             # Check if goal is reachable from new node
@@ -329,6 +330,7 @@ class RRT:
                 distance_to_goal = np.linalg.norm(vec_to_goal)
                 
                 if distance_to_goal < self.expand_dis:
+                    
                     # still gotta check for collsion
                     self.end.parent = proposed_node
                     if self.check_collision(self.end):
@@ -389,37 +391,37 @@ class RRT:
         5. Set parent relationship
         6. Return new node
         """
-        distance, theta = self.calc_distance_and_angle(
-            from_node, to_node
-        )  # This function returns the distance d from new_node to to_node and the theta represents the angle the line joining them makes with the x axis
 
-        # new_node.path_x = [new_node.x]
-        # new_node.path_y = [new_node.y]
-        # YOUR CODE GOES HERE
-        # If extend_length is greater than the distance, then ensure the robot doesn't go beyong extend_length
-        # Propagate the robot iteratively from new_node to to_node until extend_length is reached
-        # Use check_collision to check if the robot is colliding with an obstacle
-        # If the robot is colliding with an obstacle, then stop the propagation
-        # Append the coordinates of the robot into new_node.path_x and new_node.path_y
+        distances = np.zeros((5,))
+        possible_nodes = []
 
-        # NB, my collsion function does the propagation... and returns the node closest to the
-         # ob if asked
-        # also, theta isnt really needed? see the ray equation i used in the collsion func
-        
-        if distance < extend_length and theta < self.max_steer:
-            # if to node close enough, thats our new node!
-            new_node = deepcopy(to_node)
-        else:
-            # if too far, move extension distance along unit vector
-            ratio = self.max_steer/distance
-            new_x = from_node.x + ratio * (to_node.x - from_node.x)
-            new_y = from_node.y + ratio * (to_node.y - from_node.y)
-            new_node = self.Node(new_x, new_y)
+        for i, turn in enumerate(np.linspace(-self.max_steer, self.max_steer, 5)):
+            heading = from_node.psi + turn
+
+            possible_node = self.Node(from_node.x + self.expand_dis*np.cos(np.deg2rad(heading)), from_node.y + self.expand_dis*np.sin(np.deg2rad(heading)), heading)
+            possible_nodes.append(possible_node)
+
+            distance = self.calc_weighted_distance(
+                possible_node, to_node
+            )  # This function returns the distance d from new_node to to_node and the theta represents the angle the line joining them makes with the x axis
+
+            distances[i] = distance
+
+        new_node = possible_nodes[np.argmin(distances)]
+     
+        # if distance < extend_length and theta < self.max_steer:
+        #     # if to node close enough, thats our new node!
+        #     new_node = deepcopy(to_node)
+        # else:
+        #     # if too far, move extension distance along unit vector
+        #     ratio = self.max_steer/distance
+        #     new_x = from_node.x + ratio * (to_node.x - from_node.x)
+        #     new_y = from_node.y + ratio * (to_node.y - from_node.y)
+        #     new_node = self.Node(new_x, new_y)
 
         # new node needs a parent for path
         new_node.parent = from_node
     
-        # now check for collision
 
         collision_free = self.check_collision(new_node)
 
@@ -471,6 +473,40 @@ class RRT:
         theta = np.arctan2(vector[1], vector[0]) - np.deg2rad(from_node.psi)  # same as math.atan2 i am just more familiar
         # also, I never use theta lol so this is pointless
         return distance, np.rad2deg(theta)
+    
+    def calc_weighted_distance(self,
+        from_node: "RRT.Node", to_node: "RRT.Node"
+    ) -> Tuple[float, float]:
+        """
+        Calculate distance and angle between nodes.
+
+        Args:
+            from_node: Starting node
+            to_node: Target node
+
+        Returns:
+            distance: Euclidean distance between nodes
+            theta: Angle in radians from from_node to to_node
+
+        Student Task:
+        ------------
+        1. Calculate Euclidean distance between nodes
+        2. Calculate angle of line from from_node to to_node
+           relative to x-axis (use math.atan2)
+        3. Return distance and angle
+        """
+        distance = None
+        theta = None
+        # YOUR CODE GOES HERE
+        # Write code to find the distance between from_node and to_node
+        # and the angle made by the line joining from_node and to_node with the x_axis
+
+        vector = np.array([to_node.x - from_node.x, to_node.y - from_node.y])
+        distance = np.linalg.norm(vector) # l2 norm
+        diff = abs(to_node.psi - from_node.psi) % 360
+        theta = min(diff, 360 - diff) # same as math.atan2 i am just more familiar
+        # also, I never use theta lol so this is pointless
+        return distance + self.theta_weight*theta
 
     def find_nearest_node(self, node: "RRT.Node") -> "RRT.Node":
         """
@@ -497,10 +533,9 @@ class RRT:
         # oop gotta remove the current node
         node_list_without_node = [n for n in self.node_list if n is not node]
         for neighbor_node in node_list_without_node:
-            distance, _ = self.calc_distance_and_angle(node, neighbor_node)
-
-            if distance < min_distance: # gotta set new minimums
-                min_distance = distance
+            total_distance = self.calc_weighted_distance(node, neighbor_node)
+            if total_distance < min_distance: # gotta set new minimums
+                min_distance = total_distance
                 nearest_node = neighbor_node
 
 
@@ -585,7 +620,7 @@ class RRT:
         yl = [y + size * math.sin(np.deg2rad(d)) for d in deg]
         plt.plot(xl, yl, color)
         
-def main(goal_x=6.0, goal_y=10.0):
+def main():
     
     # load in the occupancy grid
     with open(r"src\Autonomy\rrt_planning\test.yaml") as f:
@@ -622,16 +657,16 @@ def main(goal_x=6.0, goal_y=10.0):
 
     rrt = RRT(
         start=pose,
-        goal=[goal_x, goal_y],
+        goal=goal,
         rand_area=workspace_bounds,
         occupancy_grid=grid,
         robot_radius=0.8,
-        expand_dis = 3.0,
-        max_iter=500
+        expand_dis = 0.3,
+        max_iter=10000
     )
 
     # Run planning
-    path = rrt.planning(animation=show_animation)
+    path = rrt.planning(animation=True)
 
     if path is None:
         print("Cannot find path")
