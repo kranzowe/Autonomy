@@ -32,6 +32,7 @@ import numpy as np
 import yaml
 from copy import deepcopy
 from PIL import Image
+from scipy.ndimage import binary_dilation
 
 show_animation = True
 
@@ -40,9 +41,36 @@ class OccupancyGrid():
 
     def __init__(self, origin, resolution, image):
 
+        self.robot_radius = 0.3
+
         self.origin = origin
         self.resolution = resolution
-        self.image = image
+        self.image = self.inflate(image)
+
+    def inflate(self, grid: np.ndarray) -> np.ndarray:
+        """
+        Inflate obstacles by robot radius using binary dilation.
+        
+        Args:
+            grid: Binary occupancy grid (True = occupied)
+            radius: Inflation radius in meters
+            
+        Returns:
+            Inflated binary grid
+        """
+        # Convert radius to grid cells
+        radius_cells = int(np.ceil(self.robot_radius / self.resolution))
+        
+        # Create circular structuring element
+        size = 2 * radius_cells + 1
+        y, x = np.ogrid[:size, :size]
+        center = radius_cells
+        mask = (x - center)**2 + (y - center)**2 <= radius_cells**2
+        
+        # Dilate obstacles
+        inflated = binary_dilation(grid, structure=mask)
+        
+        return inflated
 
     def world_to_grid(self, wx, wy):
         gx = int((wx - self.origin[0]) / self.resolution)
@@ -193,7 +221,7 @@ class RRT:
         # Environment and planning data
         self.occupancy_grid = occupancy_grid
         self.node_list = []
-        self.theta_weight = 0.001
+        self.theta_weight = 0.01
         self.max_steer = max_steer
 
     # ADDED CODE! A lovely part property for the final path
@@ -654,7 +682,6 @@ def main():
         goal=goal,
         rand_area=workspace_bounds,
         occupancy_grid=grid,
-        robot_radius=0.8,
         expand_dis = 0.3,
         max_iter=10000
     )
