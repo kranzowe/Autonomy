@@ -143,7 +143,6 @@ class RRT:
         goal_sample_rate: int = 5,
         max_iter: int = 500,
         play_area: Optional[List[float]] = None,
-        robot_radius: float = 0.0,
         max_steer: float = 15.0
     ):
         """
@@ -159,7 +158,6 @@ class RRT:
             goal_sample_rate: Rate at which goal is sampled instead of random point
             max_iter: Maximum number of iterations
             play_area: Optional bounds for valid area [xmin, xmax, ymin, ymax]
-            robot_radius: Radius of robot for collision checking
             max_steer: Maximum steering angle (radians)
 
         Class Attributes:
@@ -174,7 +172,6 @@ class RRT:
             self.max_iter: Maximum number of iterations for tree expansion
             self.obstacle_list: List of obstacles, each defined by (x, y, radius)
             self.node_list: List of all nodes in the tree
-            self.robot_radius: Robot's physical size for collision checking
             self.max_steer: Maximum steering angle (radians)
         """
         # Create Node objects for start and goal positions
@@ -196,7 +193,6 @@ class RRT:
         # Environment and planning data
         self.occupancy_grid = occupancy_grid
         self.node_list = []
-        self.robot_radius = robot_radius
         self.theta_weight = 0.001
         self.max_steer = max_steer
 
@@ -598,8 +594,6 @@ class RRT:
         
         if rnd is not None:
             plt.plot(rnd.x, rnd.y, "^k")
-            if self.robot_radius > 0.0:
-                self.plot_circle(rnd.x, rnd.y, self.robot_radius, "-r")
         
         # Plot tree edges
         for node in self.node_list:
