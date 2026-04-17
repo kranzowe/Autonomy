@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import rclpy
-from rclpy.node import node
+from rclpy.node import Node
 
 
 from nav_msgs.msg import OccupancyGrid, Path
