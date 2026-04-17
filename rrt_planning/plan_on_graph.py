@@ -41,7 +41,7 @@ class OccupancyGrid():
 
     def __init__(self, origin, resolution, image):
 
-        self.robot_radius = 0.3
+        self.robot_radius = 0.6
 
         self.origin = origin
         self.resolution = resolution
@@ -223,6 +223,7 @@ class RRT:
         self.node_list = []
         self.theta_weight = 0.01
         self.max_steer = max_steer
+        self.goal_accept_dist = expand_dis * 3
 
     # ADDED CODE! A lovely part property for the final path
     @property
@@ -344,7 +345,7 @@ class RRT:
                 self.node_list.append(proposed_node)
 
             # DO NOT ALTER THE NEXT 2 LINES
-            if animation and i % 50 == 0:
+            if animation and i % 200 == 0:
                 self.draw_graph(rnd_node)
             # YOUR CODE GOES HERE
             # Check if goal is reachable from new node
@@ -353,7 +354,7 @@ class RRT:
                 vec_to_goal = np.array([self.end.x - proposed_node.x, self.end.y - proposed_node.y]) 
                 distance_to_goal = np.linalg.norm(vec_to_goal)
                 
-                if distance_to_goal < self.expand_dis:
+                if distance_to_goal < self.goal_accept_dist:
                     
                     # still gotta check for collsion
                     self.end.parent = proposed_node
@@ -645,7 +646,7 @@ class RRT:
 def main():
     
     # load in the occupancy grid
-    with open(r"src\Autonomy\rrt_planning\test.yaml") as f:
+    with open(r"src\Autonomy\rrt_planning\Course11.yaml") as f:
         map_meta = yaml.safe_load(f)
 
     resolution = map_meta['resolution']
@@ -665,15 +666,15 @@ def main():
     # Initialize plot
 
     # get current pose 
-    pose = np.array([2, 2, 90])
+    pose = np.array([0, 0, 90])
 
     # goal... 
     # we want it to return to origininal position?
     goal = deepcopy(pose)
-    goal = np.array([8, 8, 90])
+    goal = np.array([11.1, -7.3, 90])
 
     # workspace dims
-    workspace_bounds = [np.array([0, 0, -180]), np.array([10, 10, 180])]
+    workspace_bounds = [np.array([12, 3, -180]), np.array([-1.36, -10.1, 180])]
 
 
 
@@ -683,7 +684,8 @@ def main():
         rand_area=workspace_bounds,
         occupancy_grid=grid,
         expand_dis = 0.3,
-        max_iter=10000
+        max_iter=10000,
+        max_steer=8.0
     )
 
     # Run planning
@@ -693,6 +695,16 @@ def main():
         print("Cannot find path")
     else:
         print("found path!!")
+
+    # Export path to CSV using numpy
+    path_data = []
+    node = rrt.node_list[-1]  # end node
+    while node is not None:
+        path_data.append([node.x, node.y, node.psi])
+        node = node.parent
+    path_data.reverse()  # start to goal order
+    
+    np.savetxt('Course11_small_path.csv', path_data, delimiter=',', comments='', fmt='%.6f')
 
     plt.ioff()  # Disable interactive mode
     plt.show()  # This will block until the window is closed
