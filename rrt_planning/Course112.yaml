@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    image: "src/Autonomy/rrt_planning/Course11edit.pgm"
+    image: "src/Autonomy/Course11.pgm"
     mode: "trinary"
     resolution: 0.05
     origin: [-27.3, -29.3, 0.0]
