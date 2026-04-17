@@ -203,8 +203,8 @@ class RRT:
             self.max_steer: Maximum steering angle (radians)
         """
         # Create Node objects for start and goal positions
-        self.start = self.Node(start[0], start[1])
-        self.end = self.Node(goal[0], goal[1])
+        self.start = self.Node(start[0], start[1], start[2])
+        self.end = self.Node(goal[0], goal[1], goal[2])
         # Random sampling bounds
         self.min_rand = rand_area[0]
         self.max_rand = rand_area[1]
@@ -221,7 +221,7 @@ class RRT:
         # Environment and planning data
         self.occupancy_grid = occupancy_grid
         self.node_list = []
-        self.theta_weight = 0.01
+        self.theta_weight = 0.02
         self.max_steer = max_steer
         self.goal_accept_dist = expand_dis * 3
 
@@ -229,14 +229,13 @@ class RRT:
     @property
     def final_path(self):
 
-        total_path = []
+        total_nodes = []
         node = self.node_list[-1] # should be the end node
         while node.parent is not None: # only the start node should have a parent of none
-            sub_path = node.path
-            total_path.extend(sub_path)
+            total_nodes.append(node.parent)
             node = node.parent # move to the parent
 
-        return total_path
+        return total_nodes
 
     def get_random_node(self) -> "RRT.Node":
         """
@@ -371,10 +370,10 @@ class RRT:
         
         final_path = self.final_path
 
-        if animation:
+        if True:#animation:
             # For standard RRT, plot straight lines
-            path_x = [pnt[0] for pnt in final_path]
-            path_y = [pnt[1] for pnt in final_path]
+            path_x = [pnt.x for pnt in final_path]
+            path_y = [pnt.y for pnt in final_path]
             plt.plot(
                 path_x,
                 path_y,
@@ -629,8 +628,25 @@ class RRT:
             if node.parent:
                 plt.plot(node.path_x, node.path_y, "-g")
 
+        # Arrow length for heading visualization
+        arrow_len = 1.0
+        
+        # Plot start node with heading arrow
         plt.plot(self.start.x, self.start.y, "xr", markersize=10)
+        start_dx = arrow_len * np.cos(np.deg2rad(self.start.psi))
+        start_dy = arrow_len * np.sin(np.deg2rad(self.start.psi))
+        plt.arrow(self.start.x, self.start.y, start_dx, start_dy, 
+                  head_width=0.3, head_length=0.2, fc='red', ec='red')
+        plt.text(self.start.x, self.start.y + 0.5, f'Start psi={self.start.psi:.0f}°', color='red', fontsize=8)
+        
+        # Plot goal node with heading arrow
         plt.plot(self.end.x, self.end.y, "xb", markersize=10)
+        end_dx = arrow_len * np.cos(np.deg2rad(self.end.psi))
+        end_dy = arrow_len * np.sin(np.deg2rad(self.end.psi))
+        plt.arrow(self.end.x, self.end.y, end_dx, end_dy,
+                  head_width=0.3, head_length=0.2, fc='blue', ec='blue')
+        plt.text(self.end.x, self.end.y + 0.5, f'Goal psi={self.end.psi:.0f}°', color='blue', fontsize=8)
+        
         plt.axis("equal")
         plt.grid(True)
         plt.pause(0.01)
@@ -666,45 +682,139 @@ def main():
     # Initialize plot
 
     # get current pose 
-    pose = np.array([0, 0, 90])
+    pose = np.array([0, 0, 0])
 
     # goal... 
     # we want it to return to origininal position?
     goal = deepcopy(pose)
-    goal = np.array([11.1, -7.3, 90])
+    goals = [np.array([11.1, -7.3, -90]),
+             np.array([7.33, -21.07, 180 ]),
+             np.array([-10.11, -20.58, 180]),
+             np.array([-17.61, -10.23, 90]),
+             np.array([0, 0, 0])] 
+
+    # Plot all goal nodes with headings
+    plt.figure(figsize=(10, 10))
+    extent = [
+        grid.origin[0],
+        grid.origin[0] + grid.image.shape[1] * grid.resolution,
+        grid.origin[1],
+        grid.origin[1] + grid.image.shape[0] * grid.resolution
+    ]
+    plt.imshow(grid.image, cmap='gray_r', origin='lower', extent=extent, alpha=0.7)
+    
+    arrow_len = 1.5
+    colors = ['green', 'blue', 'purple', 'orange', 'red']
+    
+    # Plot start position
+    plt.plot(pose[0], pose[1], 'o', color='black', markersize=12, label='Start')
+    start_dx = arrow_len * np.cos(np.deg2rad(pose[2]))
+    start_dy = arrow_len * np.sin(np.deg2rad(pose[2]))
+    plt.arrow(pose[0], pose[1], start_dx, start_dy,
+              head_width=0.4, head_length=0.3, fc='black', ec='black')
+    plt.text(pose[0] + 0.5, pose[1] + 0.5, f'Start\npsi={pose[2]:.0f}°', fontsize=8)
+    
+    # Plot all goal nodes
+    for i, g in enumerate(goals):
+        plt.plot(g[0], g[1], 'x', color=colors[i], markersize=12, markeredgewidth=3)
+        dx = arrow_len * np.cos(np.deg2rad(g[2]))
+        dy = arrow_len * np.sin(np.deg2rad(g[2]))
+        plt.arrow(g[0], g[1], dx, dy,
+                  head_width=0.4, head_length=0.3, fc=colors[i], ec=colors[i])
+        plt.text(g[0] + 0.5, g[1] + 0.5, f'Goal {i+1}\npsi={g[2]:.0f}°', color=colors[i], fontsize=8)
+    
+    plt.axis("equal")
+    plt.grid(True)
+    plt.title("All Goal Nodes with Headings")
+    plt.xlabel("X (m)")
+    plt.ylabel("Y (m)")
+    plt.show()
 
     # workspace dims
-    workspace_bounds = [np.array([12, 3, -180]), np.array([-1.36, -10.1, 180])]
+    workspace_bounds = [[np.array([12, 3, -180]), np.array([-1.36, -10.1, 180])],
+                        [np.array([12.5, -6.2, -180]), np.array([5.6, -22, 180])],
+                        [np.array([8.36, -19.35, -180]), np.array([-11, -21.8, 180])],
+                        [np.array([-9.1, -9.3, -180]), np.array([-18.7, -22.8, 180])],
+                        [np.array([1.0, 1.2, -180]), np.array([-18.6, -11.2, 180])]]
+                        
+    total_path = []
+    for goal, workspace_bound in zip(goals, workspace_bounds):
 
 
+        rrt = RRT(
+            start=pose,
+            goal=goal,
+            rand_area=workspace_bound,
+            occupancy_grid=grid,
+            expand_dis = 0.3,
+            max_iter=10000,
+            max_steer=14.0
+        )
 
-    rrt = RRT(
-        start=pose,
-        goal=goal,
-        rand_area=workspace_bounds,
-        occupancy_grid=grid,
-        expand_dis = 0.3,
-        max_iter=10000,
-        max_steer=8.0
-    )
+        # Run planning
+        nodes = rrt.planning(animation=True)
+        total_path.extend(nodes[1:][::-1])
 
-    # Run planning
-    path = rrt.planning(animation=True)
+        if nodes is None:
+            print("Cannot find path")
+        else:
+            print("found path!!")
 
-    if path is None:
-        print("Cannot find path")
-    else:
-        print("found path!!")
+        last_node = total_path[-1]
+
+        pose = np.array([last_node.x, last_node.y, last_node.psi])
+
 
     # Export path to CSV using numpy
     path_data = []
-    node = rrt.node_list[-1]  # end node
-    while node is not None:
+    for node in total_path:
         path_data.append([node.x, node.y, node.psi])
-        node = node.parent
-    path_data.reverse()  # start to goal order
     
-    np.savetxt('Course11_small_path.csv', path_data, delimiter=',', comments='', fmt='%.6f')
+    np.savetxt('Course11_big_path.csv', path_data, delimiter=',', header='x,y,psi', comments='', fmt='%.6f')
+
+    # Plot final path with color gradient
+    plt.figure(figsize=(12, 10))
+    extent = [
+        grid.origin[0],
+        grid.origin[0] + grid.image.shape[1] * grid.resolution,
+        grid.origin[1],
+        grid.origin[1] + grid.image.shape[0] * grid.resolution
+    ]
+    plt.imshow(grid.image, cmap='gray_r', origin='lower', extent=extent, alpha=0.5)
+    
+    # Extract path coordinates
+    path_x = [node.x for node in total_path]
+    path_y = [node.y for node in total_path]
+    
+    # Plot path segments with color gradient
+    n_points = len(total_path)
+    cmap = plt.cm.viridis  # Can also try: plasma, inferno, magma, coolwarm, rainbow
+    
+    for i in range(n_points - 1):
+        color = cmap(i / n_points)
+        plt.plot([path_x[i], path_x[i+1]], [path_y[i], path_y[i+1]], 
+                 color=color, linewidth=2)
+    
+    # Add colorbar to show progression
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, n_points))
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=plt.gca(), label='Path Progress (waypoint index)')
+    
+    # Plot start and end markers
+    plt.plot(total_path[0].x, total_path[0].y, 'go', markersize=15, label='Start', zorder=5)
+    plt.plot(total_path[-1].x, total_path[-1].y, 'r*', markersize=20, label='End', zorder=5)
+    
+    # Plot intermediate goals
+    for i, g in enumerate(goals[:-1]):
+        plt.plot(g[0], g[1], 'x', color='orange', markersize=12, markeredgewidth=3)
+        plt.text(g[0] + 0.3, g[1] + 0.3, f'G{i+1}', color='orange', fontsize=10)
+    
+    plt.axis("equal")
+    plt.grid(True, alpha=0.3)
+    plt.title("Complete Path with Color Gradient (Start → End)")
+    plt.xlabel("X (m)")
+    plt.ylabel("Y (m)")
+    plt.legend(loc='upper right')
 
     plt.ioff()  # Disable interactive mode
     plt.show()  # This will block until the window is closed
