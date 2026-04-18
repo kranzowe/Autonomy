@@ -55,19 +55,19 @@ class WallFollower(Node):
 
         twist = Twist()
 
-        if self.wall_hit_counter > 15:
+        if self.wall_hit_counter > 35:
             self.wall_hit = False
             self.wall_hit_counter = 0
 
         if self.wall_hit:
-            twist.linear.x = -0.5*DEFAULT_SPEED
+            twist.linear.x = -0.6*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
             self.wall_hit_counter += 1
         
         elif avg_fronts < 1.0:
             # going straight towards a wall. Turn right
-            twist.linear.x = -0.5*DEFAULT_SPEED
+            twist.linear.x = -0.6*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
         elif front < 0.46 :
@@ -94,7 +94,7 @@ class WallFollower(Node):
 
             twist.linear.x = DEFAULT_SPEED
             dist_component = -dist_error * 0.95
-            angle_component = angle_error * 0.15
+            angle_component = angle_error * 0.25
             deriv_component = -dist_derivative * 0.18
             twist.angular.z = dist_component + angle_component + deriv_component
             
