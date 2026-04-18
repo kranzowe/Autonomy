@@ -9,7 +9,7 @@ import time
 DEFAULT_SPEED = 0.38
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
-CENTER = 0.85
+CENTER = 0.7
 
 class WallFollower(Node):
     def __init__(self):
@@ -45,11 +45,11 @@ class WallFollower(Node):
         avg_fronts = np.mean(valid_fronts) if valid_fronts else 12.0
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
-        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-25.0, -120.0, -5.0)]
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-40.0, -120.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
         avg_right = np.mean(valid_rights) if valid_rights else 12.0
         min_right = np.min(valid_rights)
-        angles = np.arange(-25.0, -120.0, -5.0)
+        angles = np.arange(-40.0, -120.0, -5.0)
         min_angle = angles[np.argmin(rights)] 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  min_angle: {min_angle:.2f} min_r: {min_right}')
 
@@ -60,19 +60,19 @@ class WallFollower(Node):
             self.wall_hit_counter = 0
 
         if self.wall_hit:
-            twist.linear.x = -0.6*DEFAULT_SPEED
+            twist.linear.x = -0.8*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
             self.wall_hit_counter += 1
         
-        elif avg_fronts < 1.0:
-            # going straight towards a wall. Turn right
-            twist.linear.x = -0.6*DEFAULT_SPEED
-            twist.angular.z = DEFAULT_TURN_RATE
+        # elif avg_fronts < 1.0:
+        #     # going straight towards a wall. Turn right
+        #     twist.linear.x = -0.6*DEFAULT_SPEED
+        #     twist.angular.z = DEFAULT_TURN_RATE
 
         elif front < 0.46 :
             self.wall_hit = True
-            twist.linear.x = -0.7*DEFAULT_SPEED
+            twist.linear.x = -0.8*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
         # elif front < 1.0: #and avg_right > 3.0:
@@ -94,7 +94,7 @@ class WallFollower(Node):
 
             twist.linear.x = DEFAULT_SPEED
             dist_component = -dist_error * 0.95
-            angle_component = angle_error * 0.25
+            angle_component = angle_error * 0.15
             deriv_component = -dist_derivative * 0.18
             twist.angular.z = dist_component + angle_component + deriv_component
             
