@@ -51,7 +51,7 @@ class WallFollower(Node):
 
         twist = Twist()
 
-        if self.wall_hit_counter > 7:
+        if self.wall_hit_counter > 10:
             self.wall_hit = False
             self.wall_hit_counter = 0
 
