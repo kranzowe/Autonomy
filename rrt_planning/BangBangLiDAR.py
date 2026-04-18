@@ -39,13 +39,14 @@ class WallFollower(Node):
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
         rights = [self.get_range_at_angle(msg, x) for x in np.arange(-60.0, -120.0, -5.0)]
-        avg_right = np.mean(rights) if rights else right
+        valid_rights = [r for r in rights if np.isfinite(r)]
+        avg_right = np.mean(valid_rights) if valid_rights else right
 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  right: {right:.2f} avg_r: {avg_right}')
 
         twist = Twist()
 
-        if front < 1.5:
+        if front < 1.0:
             # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
             twist.linear.x = DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
