@@ -9,7 +9,7 @@ import numpy as np
 DEFAULT_SPEED = 0.32
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
-CENTER = 0.4
+CENTER = 1.0
 
 class WallFollower(Node):
     def __init__(self):
