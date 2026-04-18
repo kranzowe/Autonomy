@@ -23,7 +23,7 @@ class WallFollower(Node):
         self.get_logger().info('Wall follower node initialized...')
 
     def get_range_at_angle(self, msg, angle_deg, window_deg=3.0):
-        """Get median range at a given angle (0=front, 90=left, -90=right)."""
+        """Get median range at a given angle (180=front, -90=left, 90=right)."""
         angle_rad = np.deg2rad(angle_deg)
         center_idx = int((angle_rad - msg.angle_min) / msg.angle_increment)
         offset = int(np.deg2rad(window_deg) / msg.angle_increment)
