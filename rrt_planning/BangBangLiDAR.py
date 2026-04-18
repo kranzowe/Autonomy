@@ -6,9 +6,10 @@ from geometry_msgs.msg import Twist
 import numpy as np
 
 # Match WASD node defaults
-DEFAULT_SPEED = 0.4
-DEFAULT_TURN_RATE = 10.0
+DEFAULT_SPEED = 0.25
+DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
+CENTER = 1.0
 
 class WallFollower(Node):
     def __init__(self):
@@ -37,32 +38,37 @@ class WallFollower(Node):
         front = self.get_range_at_angle(msg,   0.0)
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-60.0, -120.0)]
+        avg_right = np.mean(rights)
 
-        self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  right: {right:.2f}')
+        self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  right: {right:.2f} avg_r: {avg_right}')
 
         twist = Twist()
 
-        if front < 1.0:
+        if front < 1.5:
             # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
             twist.linear.x = DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
             self.get_logger().warn(f'Wall ahead ({front:.2f}m) — turning right')
 
         else:
-            # Drive forward
+            error = CENTER - avg_right
             twist.linear.x = DEFAULT_SPEED
+            twist.angular.z = -error * 0.2  # nudge right
+            # # Drive forward
+            # twist.linear.x = DEFAULT_SPEED
 
-            # Center between walls
-            error = left - right  # positive = too close to right, negative = too close to left
-            if error > CENTERING_THRESHOLD:
-                twist.angular.z = -DEFAULT_TURN_RATE * 0.5   # nudge left
-                self.get_logger().info(f'Correcting left (error: {error:.2f}m)')
-            elif error < -CENTERING_THRESHOLD:
-                twist.angular.z = DEFAULT_TURN_RATE * 0.5  # nudge right
-                self.get_logger().info(f'Correcting right (error: {error:.2f}m)')
-            else:
-                twist.angular.z = 0.0
-                self.get_logger().info('Centered — driving straight')
+            # # Center between walls
+            # error = left - right  # positive = too close to right, negative = too close to left
+            # if error > CENTERING_THRESHOLD:
+            #     twist.angular.z = -DEFAULT_TURN_RATE * 0.5   # nudge left
+            #     self.get_logger().info(f'Correcting left (error: {error:.2f}m)')
+            # elif error < -CENTERING_THRESHOLD:
+            #     twist.angular.z = DEFAULT_TURN_RATE * 0.5  # nudge right
+            #     self.get_logger().info(f'Correcting right (error: {error:.2f}m)')
+            # else:
+            #     twist.angular.z = 0.0
+            #     self.get_logger().info('Centered — driving straight')
 
         self.cmd_pub.publish(twist)
 
