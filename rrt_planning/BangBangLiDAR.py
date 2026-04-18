@@ -38,8 +38,8 @@ class WallFollower(Node):
         front = self.get_range_at_angle(msg,   0.0)
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
-        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-60.0, -120.0)]
-        avg_right = np.mean(rights)
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-60.0, -120.0, -5.0)]
+        avg_right = np.mean(rights) if rights else right
 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  right: {right:.2f} avg_r: {avg_right}')
 
