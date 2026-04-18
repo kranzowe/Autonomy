@@ -9,7 +9,7 @@ import time
 DEFAULT_SPEED = 0.38
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
-CENTER = 0.7
+CENTER = 0.6
 
 class WallFollower(Node):
     def __init__(self):
@@ -45,11 +45,11 @@ class WallFollower(Node):
         avg_fronts = np.mean(valid_fronts) if valid_fronts else 12.0
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
-        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-40.0, -100.0, -5.0)]
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-45.0, -110.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
         avg_right = np.mean(valid_rights) if valid_rights else 12.0
         min_right = np.min(valid_rights)
-        angles = np.arange(-40.0, -100.0, -5.0)
+        angles = np.arange(-45.0, -110.0, -5.0)
         min_angle = angles[np.argmin(rights)] 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  min_angle: {min_angle:.2f} min_r: {min_right}')
 
