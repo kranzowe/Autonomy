@@ -7,7 +7,7 @@ import numpy as np
 
 # Match WASD node defaults
 DEFAULT_SPEED = 0.4
-DEFAULT_TURN_RATE = 10
+DEFAULT_TURN_RATE = 10.0
 CENTERING_THRESHOLD = 0.3  # meters before correcting
 
 class WallFollower(Node):
