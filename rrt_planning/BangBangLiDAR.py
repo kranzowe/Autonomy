@@ -42,29 +42,29 @@ class WallFollower(Node):
         front = self.get_range_at_angle(msg,   0.0)
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
-        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-30.0, -120.0, -5.0)]
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-40.0, -120.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
         avg_right = np.mean(valid_rights)
         min_right = np.min(valid_rights)
-        angles = np.arange(-30.0, -120.0, -5.0)
+        angles = np.arange(-40.0, -120.0, -5.0)
         min_angle = angles[np.argmin(rights)] 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  min_angle: {min_angle:.2f} min_r: {min_right}')
 
         twist = Twist()
 
-        if self.wall_hit_counter > 10:
+        if self.wall_hit_counter > 12:
             self.wall_hit = False
             self.wall_hit_counter = 0
 
         if self.wall_hit:
-            twist.linear.x = -DEFAULT_SPEED
+            twist.linear.x = -0.7*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
             self.wall_hit_counter += 1
 
-        elif front < 0.33:
+        elif front < 0.38:
             self.wall_hit = True
-            twist.linear.x = -DEFAULT_SPEED
+            twist.linear.x = -0.7*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
         # elif front < 1.0: #and avg_right > 3.0:
@@ -85,8 +85,8 @@ class WallFollower(Node):
 
 
             twist.linear.x = DEFAULT_SPEED
-            dist_component = -dist_error * 0.85
-            angle_component = angle_error * 0.1
+            dist_component = -dist_error * 0.95
+            angle_component = angle_error * 0.15
             deriv_component = -dist_derivative * 0.1
             twist.angular.z = dist_component + angle_component + deriv_component
             
