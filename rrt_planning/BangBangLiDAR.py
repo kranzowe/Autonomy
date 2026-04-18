@@ -8,7 +8,7 @@ import numpy as np
 # Match WASD node defaults
 DEFAULT_SPEED = 0.4
 DEFAULT_TURN_RATE = 10.0
-CENTERING_THRESHOLD = 0.3  # meters before correcting
+CENTERING_THRESHOLD = 0.5  # meters before correcting
 
 class WallFollower(Node):
     def __init__(self):
@@ -45,7 +45,7 @@ class WallFollower(Node):
         if front < 1.0:
             # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
             twist.linear.x = DEFAULT_SPEED
-            twist.angular.z = -DEFAULT_TURN_RATE
+            twist.angular.z = DEFAULT_TURN_RATE
             self.get_logger().warn(f'Wall ahead ({front:.2f}m) — turning right')
 
         else:
@@ -55,10 +55,10 @@ class WallFollower(Node):
             # Center between walls
             error = left - right  # positive = too close to right, negative = too close to left
             if error > CENTERING_THRESHOLD:
-                twist.angular.z = DEFAULT_TURN_RATE * 0.5   # nudge left
+                twist.angular.z = -DEFAULT_TURN_RATE * 0.5   # nudge left
                 self.get_logger().info(f'Correcting left (error: {error:.2f}m)')
             elif error < -CENTERING_THRESHOLD:
-                twist.angular.z = -DEFAULT_TURN_RATE * 0.5  # nudge right
+                twist.angular.z = DEFAULT_TURN_RATE * 0.5  # nudge right
                 self.get_logger().info(f'Correcting right (error: {error:.2f}m)')
             else:
                 twist.angular.z = 0.0
