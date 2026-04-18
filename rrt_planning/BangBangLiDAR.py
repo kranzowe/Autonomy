@@ -6,9 +6,9 @@ from geometry_msgs.msg import Twist
 import numpy as np
 
 # Match WASD node defaults
-DEFAULT_SPEED = 0.2
+DEFAULT_SPEED = 0.4
 DEFAULT_TURN_RATE = 0.5
-CENTERING_THRESHOLD = 0.15  # meters before correcting
+CENTERING_THRESHOLD = 0.3  # meters before correcting
 
 class WallFollower(Node):
     def __init__(self):
