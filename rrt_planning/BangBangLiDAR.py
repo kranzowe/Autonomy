@@ -9,7 +9,7 @@ import numpy as np
 DEFAULT_SPEED = 0.32
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
-CENTER = 1.0
+CENTER = 1.3
 
 class WallFollower(Node):
     def __init__(self):
@@ -46,7 +46,7 @@ class WallFollower(Node):
 
         twist = Twist()
 
-        if front < 1.0:
+        if front < 1.0 and avg_right > 3.0:
             # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
             twist.linear.x = DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
@@ -55,7 +55,7 @@ class WallFollower(Node):
         else:
             error = CENTER - avg_right
             twist.linear.x = DEFAULT_SPEED
-            twist.angular.z = -error * 1.0  # nudge right
+            twist.angular.z = -error * 0.6  # nudge right
             # # Drive forward
             # twist.linear.x = DEFAULT_SPEED
 
