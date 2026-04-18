@@ -64,7 +64,7 @@ class WallFollower(Node):
         elif front < 0.3:
             self.wall_hit = True
             twist.linear.x = -DEFAULT_SPEED
-            twist.angular.z = -DEFAULT_TURN_RATE
+            twist.angular.z = DEFAULT_TURN_RATE
 
         # elif front < 1.0: #and avg_right > 3.0:
         #     # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
