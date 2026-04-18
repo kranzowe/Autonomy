@@ -6,7 +6,7 @@ from geometry_msgs.msg import Twist
 import numpy as np
 
 # Match WASD node defaults
-DEFAULT_SPEED = 0.25
+DEFAULT_SPEED = 0.32
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
 CENTER = 1.0
@@ -55,7 +55,7 @@ class WallFollower(Node):
         else:
             error = CENTER - avg_right
             twist.linear.x = DEFAULT_SPEED
-            twist.angular.z = -error * 0.2  # nudge right
+            twist.angular.z = -error * 1.0  # nudge right
             # # Drive forward
             # twist.linear.x = DEFAULT_SPEED
 
