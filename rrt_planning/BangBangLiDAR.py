@@ -23,6 +23,8 @@ class WallFollower(Node):
         self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', 10)
         self.get_logger().info('Wall follower node initialized...')
 
+        self.wall_hit = False
+
     def get_range_at_angle(self, msg, angle_deg, window_deg=3.0):
         """Get median range at a given angle (180=front, -90=left, 90=right)."""
         angle_rad = np.deg2rad(angle_deg)
@@ -40,26 +42,47 @@ class WallFollower(Node):
         right = self.get_range_at_angle(msg, -90.0)
         rights = [self.get_range_at_angle(msg, x) for x in np.arange(-70.0, -110.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
-        avg_right = np.mean(valid_rights) if valid_rights else right
-
-        self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  right: {right:.2f} avg_r: {avg_right}')
+        avg_right = np.mean(valid_rights)
+        min_right = np.min(valid_rights)
+        angles = np.arange(-70.0, -110.0, -5.0)
+        min_angle = angles[np.argmin(rights)] 
+        self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  min_angle: {min_angle:.2f} min_r: {min_right}')
 
         twist = Twist()
 
-        if front < 0.2:
+        if self.wall_hit_counter > 7:
+            self.wall_hit = False
+            self.wall_hit_counter = 0
+
+        if self.wall_hit:
             twist.linear.x = -DEFAULT_SPEED
             twist.angular.z = -DEFAULT_TURN_RATE
 
-        elif front < 1.0: #and avg_right > 3.0:
-            # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
-            twist.linear.x = DEFAULT_SPEED
-            twist.angular.z = DEFAULT_TURN_RATE
-            self.get_logger().warn(f'Wall ahead ({front:.2f}m) — turning right')
+            self.wall_hit_counter += 1
+
+        elif front < 0.2:
+            self.wall_hit = True
+            twist.linear.x = -DEFAULT_SPEED
+            twist.angular.z = -DEFAULT_TURN_RATE
+
+        # elif front < 1.0: #and avg_right > 3.0:
+        #     # Wall ahead — turn right (positive angular.z = left in ROS, so negative = right)
+        #     twist.linear.x = DEFAULT_SPEED
+        #     twist.angular.z = DEFAULT_TURN_RATE
+        #     self.get_logger().warn(f'Wall ahead ({front:.2f}m) — turning right')
 
         else:
-            error = CENTER - avg_right
+            dist_error = CENTER - min_right
+            angle_error = -90 - min_angle
             twist.linear.x = DEFAULT_SPEED
-            twist.angular.z = -error * 0.85  # nudge right
+            dist_component = -dist_error * 0.85
+            angle_component = angle_error * 0.1
+            twist.angular.z = dist_component + angle_component
+            
+            self.get_logger().info(
+                f'dist_err: {dist_error:.2f} → {dist_component:.2f} | '
+                f'angle_err: {angle_error:.2f} → {angle_component:.2f} | '
+                f'total_z: {twist.angular.z:.2f}')
             # # Drive forward
             # twist.linear.x = DEFAULT_SPEED
 
