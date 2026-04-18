@@ -55,7 +55,7 @@ class WallFollower(Node):
 
         twist = Twist()
 
-        if self.wall_hit_counter > 15:
+        if self.wall_hit_counter > 12:
             self.wall_hit = False
             self.wall_hit_counter = 0
 
@@ -93,9 +93,9 @@ class WallFollower(Node):
 
 
             twist.linear.x = DEFAULT_SPEED
-            dist_component = -dist_error * 1.3
+            dist_component = -dist_error * 2.0
             angle_component = angle_error * 0.15
-            deriv_component = -dist_derivative * 0.18
+            deriv_component = -dist_derivative * 0.25
             twist.angular.z = dist_component + angle_component + deriv_component
             
             self.get_logger().info(
