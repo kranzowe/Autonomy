@@ -4,7 +4,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 import numpy as np
-
+import time
 # Match WASD node defaults
 DEFAULT_SPEED = 0.38
 DEFAULT_TURN_RATE = 7.0
@@ -42,12 +42,12 @@ class WallFollower(Node):
         front = self.get_range_at_angle(msg,   0.0)
         fronts = [self.get_range_at_angle(msg, x) for x in np.arange(20.0, -20.0, -1.0)]
         valid_fronts = [r for r in fronts if np.isfinite(r)]
-        avg_fronts = np.mean(valid_fronts)
+        avg_fronts = np.mean(valid_fronts) if valid_fronts else 12.0
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
         rights = [self.get_range_at_angle(msg, x) for x in np.arange(-25.0, -120.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
-        avg_right = np.mean(valid_rights)
+        avg_right = np.mean(valid_rights) if valid_rights else 12.0
         min_right = np.min(valid_rights)
         angles = np.arange(-25.0, -120.0, -5.0)
         min_angle = angles[np.argmin(rights)] 
@@ -121,6 +121,9 @@ class WallFollower(Node):
 
 
 def main(args=None):
+    print('Waiting 15 seconds before starting...')
+    time.sleep(15)
+    print('Starting wall follower node!')
     rclpy.init(args=args)
     node = WallFollower()
     try:
