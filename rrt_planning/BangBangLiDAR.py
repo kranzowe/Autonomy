@@ -25,6 +25,7 @@ class WallFollower(Node):
 
         self.wall_hit = False
         self.wall_hit_counter = 0
+        self.previous_dist = None
 
     def get_range_at_angle(self, msg, angle_deg, window_deg=3.0):
         """Get median range at a given angle (180=front, -90=left, 90=right)."""
@@ -41,11 +42,11 @@ class WallFollower(Node):
         front = self.get_range_at_angle(msg,   0.0)
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
-        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-50.0, -120.0, -5.0)]
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-30.0, -120.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
         avg_right = np.mean(valid_rights)
         min_right = np.min(valid_rights)
-        angles = np.arange(-50.0, -120.0, -5.0)
+        angles = np.arange(-30.0, -120.0, -5.0)
         min_angle = angles[np.argmin(rights)] 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  min_angle: {min_angle:.2f} min_r: {min_right}')
 
@@ -57,11 +58,11 @@ class WallFollower(Node):
 
         if self.wall_hit:
             twist.linear.x = -DEFAULT_SPEED
-            twist.angular.z = -DEFAULT_TURN_RATE
+            twist.angular.z = DEFAULT_TURN_RATE
 
             self.wall_hit_counter += 1
 
-        elif front < 0.3:
+        elif front < 0.33:
             self.wall_hit = True
             twist.linear.x = -DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
@@ -75,10 +76,19 @@ class WallFollower(Node):
         else:
             dist_error = CENTER - min_right
             angle_error = -90 - min_angle
+
+            if self.previous_dist is not None:
+                dist_derivative = min_right - self.previous_dist
+            else:
+                dist_derivative = 0.0
+            self.previous_dist = min_right
+
+
             twist.linear.x = DEFAULT_SPEED
             dist_component = -dist_error * 0.85
             angle_component = angle_error * 0.1
-            twist.angular.z = dist_component + angle_component
+            deriv_component = -dist_derivative * 0.1
+            twist.angular.z = dist_component + angle_component + deriv_component
             
             self.get_logger().info(
                 f'dist_err: {dist_error:.2f} → {dist_component:.2f} | '
