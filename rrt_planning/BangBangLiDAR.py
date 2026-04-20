@@ -9,7 +9,7 @@ import time
 DEFAULT_SPEED = 0.34
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
-CENTER = 1.0
+CENTER = 0.65
 
 class WallFollower(Node):
     def __init__(self):
@@ -94,7 +94,7 @@ class WallFollower(Node):
 
             twist.linear.x = DEFAULT_SPEED
             dist_component = -dist_error * 1.0
-            angle_component = angle_error * 0.17 # was 0.15
+            angle_component = angle_error * 0.3 # was 0.15
             deriv_component = -dist_derivative * 0.40
             twist.angular.z = dist_component + angle_component + deriv_component
             
@@ -122,7 +122,7 @@ class WallFollower(Node):
 
 def main(args=None):
     print('Waiting 15 seconds before starting...')
-    time.sleep(20)
+    time.sleep(23)
     print('Starting wall follower node!')
     rclpy.init(args=args)
     node = WallFollower()
