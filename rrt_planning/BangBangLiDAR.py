@@ -93,7 +93,7 @@ class WallFollower(Node):
 
 
             twist.linear.x = DEFAULT_SPEED
-            dist_component = -dist_error * 15
+            dist_component = -dist_error *8
             angle_component = angle_error * 0.2 # was 0.15
             deriv_component = -dist_derivative * 0.0 #0.40
             twist.angular.z = dist_component + angle_component + deriv_component
