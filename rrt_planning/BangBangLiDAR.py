@@ -6,7 +6,7 @@ from geometry_msgs.msg import Twist
 import numpy as np
 import time
 # Match WASD node defaults
-DEFAULT_SPEED = 0.33
+DEFAULT_SPEED = 0.36
 DEFAULT_TURN_RATE = 7.0
 CENTERING_THRESHOLD = 0.5  # meters before correcting
 CENTER = 0.65
@@ -55,7 +55,7 @@ class WallFollower(Node):
 
         twist = Twist()
 
-        if self.wall_hit_counter > 10:
+        if self.wall_hit_counter > 12:
             self.wall_hit = False
             self.wall_hit_counter = 0
 
@@ -95,7 +95,7 @@ class WallFollower(Node):
             twist.linear.x = DEFAULT_SPEED
             dist_component = -dist_error * 10
             angle_component = angle_error * 0.2 # was 0.15
-            deriv_component = -dist_derivative * 0.0 #0.40
+            deriv_component = -dist_derivative * 0.2 #0.40
             twist.angular.z = dist_component + angle_component + deriv_component
             
             self.get_logger().info(
