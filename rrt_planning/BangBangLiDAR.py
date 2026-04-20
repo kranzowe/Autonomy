@@ -45,22 +45,22 @@ class WallFollower(Node):
         avg_fronts = np.mean(valid_fronts) if valid_fronts else 12.0
         left  = self.get_range_at_angle(msg,  90.0)
         right = self.get_range_at_angle(msg, -90.0)
-        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-45.0, -110.0, -5.0)]
+        rights = [self.get_range_at_angle(msg, x) for x in np.arange(-50.0, -115.0, -5.0)]
         valid_rights = [r for r in rights if np.isfinite(r)]
         avg_right = np.mean(valid_rights) if valid_rights else 12.0
         min_right = np.min(valid_rights)
-        angles = np.arange(-45.0, -110.0, -5.0)
+        angles = np.arange(-50.0, -115.0, -5.0)
         min_angle = angles[np.argmin(rights)] 
         self.get_logger().info(f'front: {front:.2f}  left: {left:.2f}  min_angle: {min_angle:.2f} min_r: {min_right}')
 
         twist = Twist()
 
-        if self.wall_hit_counter > 12:
+        if self.wall_hit_counter > 10:
             self.wall_hit = False
             self.wall_hit_counter = 0
 
         if self.wall_hit:
-            twist.linear.x = -0.8*DEFAULT_SPEED
+            twist.linear.x = -0.7*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
             self.wall_hit_counter += 1
@@ -70,9 +70,9 @@ class WallFollower(Node):
         #     twist.linear.x = -0.6*DEFAULT_SPEED
         #     twist.angular.z = DEFAULT_TURN_RATE
 
-        elif front < 0.46 :
+        elif front < 0.56 :
             self.wall_hit = True
-            twist.linear.x = -0.8*DEFAULT_SPEED
+            twist.linear.x = -0.7*DEFAULT_SPEED
             twist.angular.z = DEFAULT_TURN_RATE
 
         # elif front < 1.0: #and avg_right > 3.0:
@@ -94,7 +94,7 @@ class WallFollower(Node):
 
             twist.linear.x = DEFAULT_SPEED
             dist_component = -dist_error * 2.0
-            angle_component = angle_error * 0.15
+            angle_component = angle_error * 0.20 # was 0.15
             deriv_component = -dist_derivative * 0.25
             twist.angular.z = dist_component + angle_component + deriv_component
             
