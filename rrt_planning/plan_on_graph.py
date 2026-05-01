@@ -34,7 +34,7 @@ from copy import deepcopy
 from PIL import Image
 from scipy.ndimage import binary_dilation
 import cv2
-show_animation = True
+show_animation = False
 
 
 class OccupancyGrid():
@@ -230,13 +230,11 @@ class RRT:
     # ADDED CODE! A lovely part property for the final path
     @property
     def final_path(self):
-
         total_nodes = []
-        node = self.node_list[-1] # should be the end node
-        while node.parent is not None: # only the start node should have a parent of none
-            total_nodes.append(node.parent)
-            node = node.parent # move to the parent
-
+        node = self.node_list[-1]  # end node
+        while node is not None:
+            total_nodes.append(node)
+            node = node.parent
         return total_nodes
 
     def get_random_node(self, box=None, center=None, angle_sector=None, max_box_dist=100) -> "RRT.Node":
@@ -306,7 +304,7 @@ class RRT:
         return path[::-1]  # Reverse path to get start-to-goal order
 
     def planning(
-        self, animation: bool = True
+        self, animation: bool = False
     ) -> Optional[List[Tuple[float, float]]]:
         """
         Plan a path from start to goal using RRT.
@@ -607,6 +605,21 @@ class RRT:
                 return False
         
         return True
+    
+    
+    def shortcut_path(self, path, max_iters=100):
+        path = list(path)
+        for _ in range(max_iters):
+            if len(path) < 3:
+                break
+            i = random.randint(0, len(path) - 3)
+            j = random.randint(i + 2, len(path) - 1)
+            # temporarily reparent to test straight-line collision
+            test_node = self.Node(path[j].x, path[j].y, path[j].psi)
+            test_node.parent = path[i]
+            if self.check_collision(test_node):
+                path = path[:i+1] + [test_node] + path[j+1:]
+        return path
 
 
     def draw_graph(self, rnd=None):
@@ -728,6 +741,7 @@ def angle_between(a, b, c):
         return a <= c <= b
     else:
         return c >= a or c <= b
+
 
 def main():
     
@@ -883,7 +897,7 @@ def main():
             rand_area=workspace_bounds,
             occupancy_grid=grid,
             expand_dis = 0.3,
-            max_iter=10000,
+            max_iter=20000,
             max_steer=17.0,
             box = box
         )
@@ -892,23 +906,28 @@ def main():
         rrt.center = center
 
         # Run planning
-        nodes = rrt.planning(animation=True)
-        total_path.extend(nodes[1:][::-1])
+        nodes = rrt.planning(animation=False)
 
         if nodes is None:
             print("Cannot find path")
-        else:
-            print("found path!!")
+            continue
 
-        last_node = total_path[-1]
+        print("found path!!")
+        nodes = rrt.shortcut_path(nodes)
+        nodes = nodes[::-1]
 
-        pose = np.array([last_node.x, last_node.y, last_node.psi])
+        # skip the first node only if it duplicates the previous segment's end
+        if total_path:
+            nodes = nodes[1:]
 
+        total_path.extend(nodes)
+        pose = np.array([total_path[-1].x, total_path[-1].y, total_path[-1].psi])
 
     # Export path to CSV using numpy
     path_data = []
     for node in total_path:
         path_data.append([node.x, node.y, node.psi])
+
     
     np.savetxt('ohmy_big_path.csv', path_data, delimiter=',', header='x,y,psi', comments='', fmt='%.6f')
 
