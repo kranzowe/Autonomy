@@ -620,6 +620,38 @@ class RRT:
             if self.check_collision(test_node):
                 path = path[:i+1] + [test_node] + path[j+1:]
         return path
+    
+    def densify_path(self, path, spacing=0.1):
+        """Insert evenly-spaced nodes between consecutive path nodes.
+        
+        Args:
+            path: list of nodes (any order — output preserves input order)
+            spacing: target distance between samples in meters
+        """
+        if len(path) < 2:
+            return list(path)
+        
+        dense = [path[0]]
+        for i in range(len(path) - 1):
+            a, b = path[i], path[i+1]
+            dx, dy = b.x - a.x, b.y - a.y
+            seg_len = math.hypot(dx, dy)
+            n_steps = max(1, int(np.ceil(seg_len / spacing)))
+            
+            # interpolate heading too — handle wrap with shortest angular path
+            dpsi = ((b.psi - a.psi + 180) % 360) - 180
+            
+            for k in range(1, n_steps + 1):
+                t = k / n_steps
+                new_node = self.Node(
+                    a.x + t * dx,
+                    a.y + t * dy,
+                    a.psi + t * dpsi,
+                )
+                new_node.parent = a if k == 1 else dense[-1]
+                dense.append(new_node)
+        
+        return dense
 
 
     def draw_graph(self, rnd=None):
@@ -716,7 +748,7 @@ def angle_from_vertical(pt, center):
     dx = pt[0] - center[0]
     dy = center[1] - pt[1]  # y axis is inverted in image coordinates
     angle = np.arctan2(dx, dy)  # 0 is up, positive is to the right
-    return angle
+    return angle - 20
 
 def min_dist_to_box(pt, box):
     # pt: (x, y)
@@ -914,6 +946,7 @@ def main():
 
         print("found path!!")
         nodes = rrt.shortcut_path(nodes)
+        #nodes = rrt.densify_path(nodes)
         nodes = nodes[::-1]
 
         # skip the first node only if it duplicates the previous segment's end
