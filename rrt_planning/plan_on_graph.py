@@ -26,14 +26,14 @@ Full Name: Owen Kranz
 import math
 import random
 from typing import List, Optional, Tuple, Union
-
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 from copy import deepcopy
 from PIL import Image
 from scipy.ndimage import binary_dilation
-
+import cv2
 show_animation = True
 
 
@@ -171,7 +171,8 @@ class RRT:
         goal_sample_rate: int = 5,
         max_iter: int = 500,
         play_area: Optional[List[float]] = None,
-        max_steer: float = 15.0
+        max_steer: float = 15.0,
+        box = None
     ):
         """
         Initialize the RRT planner.
@@ -224,6 +225,7 @@ class RRT:
         self.theta_weight = 0.02
         self.max_steer = max_steer
         self.goal_accept_dist = expand_dis * 3
+        self.box = box
 
     # ADDED CODE! A lovely part property for the final path
     @property
@@ -237,37 +239,41 @@ class RRT:
 
         return total_nodes
 
-    def get_random_node(self) -> "RRT.Node":
+    def get_random_node(self, box=None, center=None, angle_sector=None, max_box_dist=100) -> "RRT.Node":
         """
-        Sample a random node in the state space.
-
-        The sampling should account for:
-        - goal_sample_rate: Probability of sampling the goal node
-        - min_rand/max_rand: Bounds of the sampling space
-
-        Student Task:
-        ------------
-        1. With probability goal_sample_rate/100, return the goal node
-        2. Otherwise, sample random position within min_rand/max_rand bounds
-        4. Return new Node with sampled values
-
-        Returns:
-            Node: Randomly sampled node
+        Sample a random node in the state space, optionally constrained to be near a box and within an angle sector.
         """
-
         is_goal = False
-        random_num = random.random()
-        if random_num < self.goal_sample_rate/100: # gotta divide by 100 to make range 0 to 1
-            random_node = deepcopy(self.end) # imma deepcopy to be safe
-            random_node.psi = random.uniform(self.min_rand[2], self.max_rand[2])
-            is_goal = True
-        else:
-            # need a rando sample
-            rand_x = random.uniform(self.min_rand[0], self.max_rand[0])
-            rand_y = random.uniform(self.min_rand[1], self.max_rand[1])
-            rand_psi = random.uniform(self.min_rand[2], self.max_rand[2])
+        while True:
+            random_num = random.random()
+            if random_num < self.goal_sample_rate/100:
+                random_node = deepcopy(self.end)
+                random_node.psi = random.uniform(self.min_rand[2], self.max_rand[2])
+                is_goal = True
+            else:
+                rand_x = random.uniform(self.min_rand[0], self.max_rand[0])
+                rand_y = random.uniform(self.min_rand[1], self.max_rand[1])
+                rand_psi = random.uniform(self.min_rand[2], self.max_rand[2])
+                random_node = self.Node(rand_x, rand_y, rand_psi)
 
-            random_node = self.Node(rand_x, rand_y, rand_psi)
+            # If no constraints, accept
+            # if box is None or center is None or angle_sector is None:
+            #     break
+
+            # Convert world to grid for pixel units
+            gx, gy = self.occupancy_grid.world_to_grid(random_node.x, random_node.y)
+            pt = np.array([gx, gy])
+
+            # Check distance to box
+            if min_dist_to_box(pt, self.box) > 10:
+                continue
+
+            # # Check angle sector
+            # angle = angle_from_vertical(pt, center)
+            # if not angle_between(angle_sector[0], angle_sector[1], angle):
+            #     continue
+
+            break
 
         return random_node, is_goal
     
@@ -630,7 +636,20 @@ class RRT:
 
         # Arrow length for heading visualization
         arrow_len = 1.0
-        
+
+        if hasattr(self, 'angles') and hasattr(self, 'center'):
+            cx, cy = self.center
+            for theta in self.angles:
+                # Convert center (pixel) to world coordinates for plotting
+                wx, wy = self.occupancy_grid.grid_to_world(cx, cy)
+                # Choose a reasonable length for the ray (in meters)
+                ray_length = 5
+                dx = ray_length * np.cos(theta)
+                dy = ray_length * np.sin(theta)
+                plt.plot([wx, wx + dx], [wy, wy + dy], '--', color='magenta', alpha=0.5)
+                # Optionally, label the angle
+                plt.text(wx + dx, wy + dy, f"{np.rad2deg(theta):.0f}°", color='magenta', fontsize=8)
+            
         # Plot start node with heading arrow
         plt.plot(self.start.x, self.start.y, "xr", markersize=10)
         start_dx = arrow_len * np.cos(np.deg2rad(self.start.psi))
@@ -658,18 +677,72 @@ class RRT:
         xl = [x + size * math.cos(np.deg2rad(d)) for d in deg]
         yl = [y + size * math.sin(np.deg2rad(d)) for d in deg]
         plt.plot(xl, yl, color)
-        
+
+def point_side_of_rectangle(pt3, box):
+    # box: 4x2 array of rectangle corners, ordered clockwise
+    # pt: (x, y)
+    # Returns: side index (0=top, 1=right, 2=bottom, 3=left)
+    pt = pt3[0:2]
+    min_dist = float('inf')
+    side_idx = -1
+    for i in range(4):
+        a = box[i]
+        b = box[(i+1)%4]
+        # Distance from pt to line segment ab
+        ab = b - a
+        ap = pt - a
+        t = np.clip(np.dot(ap, ab) / np.dot(ab, ab), 0, 1)
+        closest = a + t * ab
+        dist = np.linalg.norm(pt - closest)
+        if dist < min_dist:
+            min_dist = dist
+            side_idx = i
+    return side_idx
+
+def angle_from_vertical(pt, center):
+    dx = pt[0] - center[0]
+    dy = center[1] - pt[1]  # y axis is inverted in image coordinates
+    angle = np.arctan2(dx, dy)  # 0 is up, positive is to the right
+    return angle
+
+def min_dist_to_box(pt, box):
+    # pt: (x, y)
+    min_dist = float('inf')
+    for i in range(4):
+        a = box[i]
+        b = box[(i+1)%4]
+        ab = b - a
+        ap = pt - a
+        t = np.clip(np.dot(ap, ab) / np.dot(ab, ab), 0, 1)
+        closest = a + t * ab
+        dist = np.linalg.norm(pt - closest)
+        if dist < min_dist:
+            min_dist = dist
+    return min_dist
+
+def angle_between(a, b, c):
+    a = np.mod(a, 2*np.pi)
+    b = np.mod(b, 2*np.pi)
+    c = np.mod(c, 2*np.pi)
+    if a < b:
+        return a <= c <= b
+    else:
+        return c >= a or c <= b
+
 def main():
     
     # load in the occupancy grid
-    with open(r"src\Autonomy\rrt_planning\Course11.yaml") as f:
+    with open(r"src\Autonomy\rrt_planning\oh_my.yaml") as f:
         map_meta = yaml.safe_load(f)
 
     resolution = map_meta['resolution']
     origin = map_meta['origin']  # [x, y, theta]
     image_path = map_meta['image']
 
-    raw = np.array(Image.open(image_path))
+    
+    image_file = os.path.basename(image_path)
+    image_full_path = os.path.join("src", "Autonomy", "rrt_planning", image_file)
+    raw = np.array(Image.open(image_full_path))
     grid = np.flipud(raw < 50) 
 
     # inflate walls
@@ -681,17 +754,79 @@ def main():
     plt.show()
     # Initialize plot
 
+    img_uint8 = (grid.image.astype(np.uint8)) * 255
+
+    contours, _ = cv2.findContours(img_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+
+    img_color = cv2.cvtColor(img_uint8, cv2.COLOR_GRAY2BGR)
+
+    cnt = contours[0]
+    rect = cv2.minAreaRect(cnt)
+    box = cv2.boxPoints(rect)
+    box = box.astype(np.int32)
+    cv2.drawContours(img_color, [box], 0, (0, 255, 0), 2)
+    
+
+    M = cv2.moments(cnt)
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+    center = np.array([cx, cy])
+
+    num_samples = 7
+    angles = np.linspace(0, 2*np.pi, num_samples, endpoint=False)
+    sampled_points = []
+
+    free_space = (img_uint8 == 0).astype(np.uint8)
+
+    dist_transform = cv2.distanceTransform(free_space, cv2.DIST_L2, 5)
+
+    for theta in angles:
+        direction = np.array([np.cos(theta), np.sin(theta)])
+        max_dist = 0
+        best_point = None
+        for pt in cnt[:, 0, :]:
+            vec = pt - center
+            angle = np.arctan2(vec[1], vec[0])
+            if np.isclose(np.mod(angle-theta, 2*np.pi), 0, atol=0.1):
+                dist = np.linalg.norm(vec)
+                if dist > max_dist:
+                    max_dist = dist
+                    candidate = np.zeros((3,))
+                    candidate[0:2] = pt
+                    candidate[0] += 15 * np.cos(theta)
+                    candidate[1] += 15 * np.sin(theta)
+                    if 0 <= candidate[1] < dist_transform.shape[0] and 0 <= candidate[0] < dist_transform.shape[1]:
+                        if dist_transform[int(candidate[1]), int(candidate[0])] >= 10:
+                            best_point = candidate
+
+                            ## detect side of the rectangle for yaw
+                            side = point_side_of_rectangle(best_point, box)
+                            side_to_angle = {0: 90, 1: 180, 2: -90, 3: 0}
+                            best_point[2] = side_to_angle[side]
+        if best_point is not None:
+            sampled_points.append(best_point)
+    
+    for pt in sampled_points:
+        cv2.circle(img_color, (int(pt[0]), int(pt[1])), radius=4, color=(0, 0, 255), thickness=-1)
+
+    sampled_points = sorted(
+    sampled_points,
+    key=lambda pt: angle_from_vertical(pt, center),
+    reverse=True)
+
+    cv2.imshow('Detected Rectangles', img_color)
+    cv2.waitKey(0)
+
     # get current pose 
     pose = np.array([0, 0, 0])
 
     # goal... 
     # we want it to return to origininal position?
     goal = deepcopy(pose)
-    goals = [np.array([11.1, -7.3, -90]),
-             np.array([7.33, -21.07, 180 ]),
-             np.array([-10.11, -20.58, 180]),
-             np.array([-17.61, -10.23, 90]),
-             np.array([0, 0, 0])] 
+    goals = sampled_points 
 
     # Plot all goal nodes with headings
     plt.figure(figsize=(10, 10))
@@ -716,13 +851,18 @@ def main():
     
     # Plot all goal nodes
     for i, g in enumerate(goals):
-        plt.plot(g[0], g[1], 'x', color=colors[i], markersize=12, markeredgewidth=3)
+        # Convert pixel to world coordinates
+        gx, gy = int(g[0]), int(g[1])
+        wx, wy = grid.grid_to_world(gx, gy)
+        g[0] = wx
+        g[1] = wy
+        plt.plot(wx, wy, 'x', color=colors[i%len(colors)], markersize=12, markeredgewidth=3)
         dx = arrow_len * np.cos(np.deg2rad(g[2]))
         dy = arrow_len * np.sin(np.deg2rad(g[2]))
-        plt.arrow(g[0], g[1], dx, dy,
-                  head_width=0.4, head_length=0.3, fc=colors[i], ec=colors[i])
-        plt.text(g[0] + 0.5, g[1] + 0.5, f'Goal {i+1}\npsi={g[2]:.0f}°', color=colors[i], fontsize=8)
-    
+        plt.arrow(wx, wy, dx, dy,
+                  head_width=0.4, head_length=0.3, fc=colors[i%len(colors)], ec=colors[i%len(colors)])
+        plt.text(wx + 0.5, wy + 0.5, f'Goal {i+1}\npsi={g[2]:.0f}°', color=colors[i%len(colors)], fontsize=8)
+    goals.append(np.array([0,0,0]))
     plt.axis("equal")
     plt.grid(True)
     plt.title("All Goal Nodes with Headings")
@@ -731,25 +871,25 @@ def main():
     plt.show()
 
     # workspace dims
-    workspace_bounds = [[np.array([12, 3, -180]), np.array([-1.36, -10.1, 180])],
-                        [np.array([12.5, -6.2, -180]), np.array([5.6, -22, 180])],
-                        [np.array([8.36, -19.35, -180]), np.array([-11, -21.8, 180])],
-                        [np.array([-9.1, -9.3, -180]), np.array([-18.7, -22.8, 180])],
-                        [np.array([1.0, 1.2, -180]), np.array([-18.6, -11.2, 180])]]
+    workspace_bounds = [np.array([15, 9, -180]), np.array([-25.0, -26.2, 180])]
                         
     total_path = []
-    for goal, workspace_bound in zip(goals, workspace_bounds):
+    for goal in goals:
 
 
         rrt = RRT(
             start=pose,
             goal=goal,
-            rand_area=workspace_bound,
+            rand_area=workspace_bounds,
             occupancy_grid=grid,
             expand_dis = 0.3,
             max_iter=10000,
-            max_steer=14.0
+            max_steer=17.0,
+            box = box
         )
+
+        rrt.angles = angles
+        rrt.center = center
 
         # Run planning
         nodes = rrt.planning(animation=True)
@@ -770,7 +910,7 @@ def main():
     for node in total_path:
         path_data.append([node.x, node.y, node.psi])
     
-    np.savetxt('Course11_big_path.csv', path_data, delimiter=',', header='x,y,psi', comments='', fmt='%.6f')
+    np.savetxt('ohmy_big_path.csv', path_data, delimiter=',', header='x,y,psi', comments='', fmt='%.6f')
 
     # Plot final path with color gradient
     plt.figure(figsize=(12, 10))
